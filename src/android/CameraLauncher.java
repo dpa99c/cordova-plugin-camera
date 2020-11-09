@@ -411,27 +411,26 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
         }
     }
 
+    /**
+     * Brings up the UI to perform crop on passed image URI
+     *
+     * @param picUri
+     */
+    private void performCrop(Uri picUri, int destType, Intent cameraIntent) {
+        try {
+            Intent cropIntent = new Intent("com.android.camera.action.CROP");
+            // indicate image type and Uri
+            cropIntent.setDataAndType(picUri, "image/*");
+            // set crop properties
+            cropIntent.putExtra("crop", "true");
 
-  /**
-   * Brings up the UI to perform crop on passed image URI
-   *
-   * @param picUri
-   */
-  private void performCrop(Uri picUri, int destType, Intent cameraIntent) {
-    try {
-        Intent cropIntent = new Intent("com.android.camera.action.CROP");
-        // indicate image type and Uri
-        cropIntent.setDataAndType(picUri, "image/*");
-        // set crop properties
-        cropIntent.putExtra("crop", "true");
 
-
-        // indicate output X and Y
-        if (targetWidth > 0) {
-          cropIntent.putExtra("outputX", targetWidth);
-        }
-        if (targetHeight > 0) {
-          cropIntent.putExtra("outputY", targetHeight);
+            // indicate output X and Y
+            if (targetWidth > 0) {
+                cropIntent.putExtra("outputX", targetWidth);
+            }
+            if (targetHeight > 0) {
+                cropIntent.putExtra("outputY", targetHeight);
         }
         if (targetHeight > 0 && targetWidth > 0 && targetWidth == targetHeight) {
           cropIntent.putExtra("aspectX", 1);
@@ -446,22 +445,22 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
 
         // start the activity - we handle returning in onActivityResult
 
-        if (this.cordova != null) {
-            this.cordova.startActivityForResult((CordovaPlugin) this,
-                cropIntent, CROP_CAMERA + destType);
+            if (this.cordova != null) {
+                this.cordova.startActivityForResult((CordovaPlugin) this,
+                        cropIntent, CROP_CAMERA + destType);
+            }
+        } catch (ActivityNotFoundException anfe) {
+            LOG.e(LOG_TAG, "Crop operation not supported on this device");
+            try {
+                processResultFromCamera(destType, cameraIntent);
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+                LOG.e(LOG_TAG, "Unable to write to file");
+            }
         }
-    } catch (ActivityNotFoundException anfe) {
-      LOG.e(LOG_TAG, "Crop operation not supported on this device");
-      try {
-          processResultFromCamera(destType, cameraIntent);
-      }
-      catch (IOException e)
-      {
-          e.printStackTrace();
-          LOG.e(LOG_TAG, "Unable to write to file");
-      }
     }
-  }
 
     /**
      * Applies all needed transformation to the image received from the camera.
@@ -712,12 +711,12 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                     bitmap = getScaledAndRotatedBitmap(uriString);
                 } catch (IOException e) {
                     e.printStackTrace();
-                }
-                if (bitmap == null) {
-                    LOG.d(LOG_TAG, "I either have a null image path or bitmap");
-                    this.failPicture("Unable to create bitmap!");
-                    return;
-                }
+                    }
+                    if (bitmap == null) {
+                        LOG.d(LOG_TAG, "I either have a null image path or bitmap");
+                        this.failPicture("Unable to create bitmap!");
+                        return;
+                    }
 
                 // If sending base64 image back
                 if (destType == DATA_URL) {
@@ -732,14 +731,14 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                             !mimeType.equalsIgnoreCase(getMimetypeForFormat(encodingType)))
                     {
                         try {
-                            String modifiedPath = this.outputModifiedBitmap(bitmap, uri);
+                                String modifiedPath = this.outputModifiedBitmap(bitmap, uri);
                             // The modified image is cached by the app in order to get around this and not have to delete you
                             // application cache I'm adding the current system time to the end of the file url.
                             this.callbackContext.success("file://" + modifiedPath + "?" + System.currentTimeMillis());
 
                         } catch (Exception e) {
                             e.printStackTrace();
-                            this.failPicture("Error retrieving image.");
+                                this.failPicture("Error retrieving image: "+e.getMessage());
                         }
                     } else {
                         this.callbackContext.success(fileLocation);
@@ -807,7 +806,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
-                    this.failPicture("Error capturing image.");
+                    this.failPicture("Error capturing image: "+e.getMessage());
                 }
             }
 
@@ -1271,7 +1270,7 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
                 code = null;
             }
         } catch (Exception e) {
-            this.failPicture("Error compressing image.");
+            this.failPicture("Error compressing image: "+e.getMessage());
         }
         jpeg_data = null;
     }
@@ -1382,10 +1381,6 @@ public class CameraLauncher extends CordovaPlugin implements MediaScannerConnect
     }
 
      /*
-      * This is dirty, but it does the job.
-      *
-      * Since the FilesProvider doesn't really provide you a way of getting a URL from the file,
-      * and since we actually need the Camera to create the file for us most of the time, we don't
       * actually write the file, just generate the location based on a timestamp, we need to get it
       * back from the Intent.
       *
